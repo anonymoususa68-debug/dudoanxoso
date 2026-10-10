@@ -1,0 +1,59 @@
+name: Chạy bot xổ số hàng ngày
+
+on:
+  schedule:
+    - cron: '30 12 * * *'  # 12h30 UTC = 19h30 giờ Việt Nam
+  workflow_dispatch:
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Cài đặt dependencies
+        run: npm install
+      
+      - name: Chạy fetch dữ liệu
+        run: node src/fetch.js
+      
+      - name: Kiểm tra dữ liệu
+        run: node src/validate.js
+      
+      - name: Chạy 30 bot
+        run: node src/bots.js
+      
+      - name: Tạo thư mục gh-pages
+        run: mkdir -p gh-pages
+      
+      - name: Xuất index.html
+        run: node src/render.js
+      
+      - name: Deploy lên GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./gh-pages
+          publish_branch: gh-pages
+      
+      - name: Gửi email cảnh báo nếu lỗi
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.EMAIL_USER }}
+          password: ${{ secrets.EMAIL_PASS }}
+          subject: "⚠️ Bot xổ số gặp lỗi"
+          to: your-email@gmail.com
+          from: Bot xổ số
+          body: "Bot chạy thất bại. Vui lòng kiểm tra GitHub Actions."
